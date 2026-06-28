@@ -1,0 +1,7 @@
+#EXTM3U url-tvg="http://example.com/epg.xml"
+#EXTINF:-1 tvg-id="news1.us" tvg-name="News One" tvg-logo="http://example.com/news1.png" group-title="News",News One
+http://example.com/streams/news1.m3u8
+#EXTINF:-1 tvg-id="sports1.us" tvg-name="Sports HD" tvg-logo="http://example.com/sports1.png" group-title="Sports",Sports HD
+https://example.com/live/sports1/index.m3u8
+#EXTINF:-1 tvg-id="movies1.us" tvg-name="Movies" group-title="Movies",Movies Channel
+rtmp://example.com/live/movies

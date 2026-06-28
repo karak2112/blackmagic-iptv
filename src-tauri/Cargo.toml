@@ -1,0 +1,53 @@
+[package]
+name = "iptv-player"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Lightweight open-source IPTV player"
+
+[lib]
+name = "iptv_player_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+iptv-core = { path = "../crates/iptv-core" }
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+url.workspace = true
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "stream"] }
+futures-util = "0.3"
+dirs = "6"
+parking_lot = "0.12"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tempfile = "3"
+raw-window-handle = "0.6"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.61", features = [
+  "Win32_Foundation",
+  "Win32_UI_WindowsAndMessaging",
+] }
+
+[features]
+default = ["playback-stub"]
+playback-mpv = ["dep:libmpv2"]
+playback-stub = []
+
+[dependencies.libmpv2]
+version = "4"
+optional = true
+
+[dev-dependencies]
+tempfile = "3"

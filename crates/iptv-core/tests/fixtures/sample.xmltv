@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<tv generator-info-name="iptv-fixture">
+  <channel id="news1.us">
+    <display-name>News One</display-name>
+  </channel>
+  <channel id="sports1.us">
+    <display-name>Sports HD</display-name>
+  </channel>
+  <programme start="20250101060000 +0000" stop="20250101070000 +0000" channel="news1.us">
+    <title>Morning News</title>
+    <desc>Daily headlines</desc>
+    <category>News</category>
+  </programme>
+  <programme start="20250101070000 +0000" stop="20250101080000 +0000" channel="news1.us">
+    <title>Weather Update</title>
+  </programme>
+  <programme start="20250101080000 +0000" stop="20250101093000 +0000" channel="sports1.us">
+    <title>Game Day Live</title>
+    <category>Sports</category>
+  </programme>
+</tv>
