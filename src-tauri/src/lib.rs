@@ -3,6 +3,7 @@ pub mod db;
 pub mod error;
 pub mod fetch;
 pub mod playback;
+pub mod recording;
 pub mod services;
 pub mod state;
 
@@ -66,6 +67,8 @@ pub fn run() {
             commands::get_channel,
             commands::list_sources,
             commands::get_platform,
+            commands::get_recording_status,
+            commands::toggle_recording,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -26,6 +26,9 @@
     onToggleMute: () => void;
     onReload: () => void;
     onChannelDelta: (delta: number) => void;
+    recordAvailable?: boolean;
+    recording?: boolean;
+    onToggleRecord?: () => void;
   }
 
   let {
@@ -50,6 +53,9 @@
     onToggleMute,
     onReload,
     onChannelDelta,
+    recordAvailable = false,
+    recording = false,
+    onToggleRecord,
   }: Props = $props();
 
   let showControls = $state(true);
@@ -219,6 +225,17 @@
             <button onclick={onReload} aria-label="Reload stream">↻</button>
             <button onclick={() => onChannelDelta(-1)} aria-label="Previous channel">CH−</button>
             <button onclick={() => onChannelDelta(1)} aria-label="Next channel">CH+</button>
+            {#if recordAvailable && onToggleRecord}
+              <button
+                class="record-btn"
+                class:active={recording}
+                onclick={onToggleRecord}
+                aria-label={recording ? "Stop recording" : "Start recording"}
+                aria-pressed={recording}
+              >
+                {recording ? "⏹ REC" : "⏺ REC"}
+              </button>
+            {/if}
           </div>
 
           <div class="controls-right">
@@ -410,6 +427,18 @@
     padding: 8px 10px;
     background: rgba(255, 255, 255, 0.1);
     border-radius: var(--radius);
+  }
+
+  .record-btn {
+    font-size: 13px !important;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+
+  .record-btn.active {
+    background: rgba(239, 68, 68, 0.35);
+    box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.7);
+    color: #fecaca;
   }
 
   input[type="range"] {

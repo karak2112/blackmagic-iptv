@@ -60,6 +60,23 @@ pub struct StreamStats {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecordingStatus {
+    pub active: bool,
+    pub path: Option<String>,
+    pub available: bool,
+}
+
+impl Default for RecordingStatus {
+    fn default() -> Self {
+        Self {
+            active: false,
+            path: None,
+            available: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlaybackState {
     pub channel_id: Option<String>,
     pub playing: bool,

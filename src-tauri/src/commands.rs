@@ -221,6 +221,16 @@ pub fn list_sources(state: State<'_, AppState>) -> Result<Vec<Source>, crate::er
 }
 
 #[tauri::command]
+pub fn get_recording_status(state: State<'_, AppState>) -> iptv_core::RecordingStatus {
+    services::get_recording_status(&state)
+}
+
+#[tauri::command]
+pub fn toggle_recording(state: State<'_, AppState>) -> Result<iptv_core::RecordingStatus, crate::error::AppError> {
+    services::toggle_recording(&state)
+}
+
+#[tauri::command]
 pub fn get_platform() -> &'static str {
     services::platform_name()
 }

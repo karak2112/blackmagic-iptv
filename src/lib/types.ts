@@ -55,6 +55,12 @@ export interface EpgSummary {
   matched_count: number;
 }
 
+export interface RecordingStatus {
+  active: boolean;
+  path: string | null;
+  available: boolean;
+}
+
 export interface PlaybackState {
   channel_id: string | null;
   playing: boolean;

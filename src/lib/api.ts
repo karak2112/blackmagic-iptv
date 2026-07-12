@@ -8,6 +8,7 @@ import type {
   NowNext,
   PlaybackState,
   PlaylistSummary,
+  RecordingStatus,
   Source,
   StreamStats,
 } from "./types";
@@ -145,4 +146,12 @@ export async function listSources(): Promise<Source[]> {
 
 export async function getPlatform(): Promise<string> {
   return invoke("get_platform");
+}
+
+export async function getRecordingStatus(): Promise<RecordingStatus> {
+  return invoke("get_recording_status");
+}
+
+export async function toggleRecording(): Promise<RecordingStatus> {
+  return invoke("toggle_recording");
 }

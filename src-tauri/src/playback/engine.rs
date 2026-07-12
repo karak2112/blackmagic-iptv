@@ -35,6 +35,17 @@ pub trait PlaybackEngine: Send {
     fn is_available(&self) -> bool;
     fn engine_name(&self) -> &'static str;
     fn stream_stats(&self) -> StreamStats;
+    fn supports_recording(&self) -> bool {
+        false
+    }
+    fn start_recording(&mut self, _path: &str) -> Result<(), AppError> {
+        Err(AppError::Other(
+            "Recording is not supported on this platform.".into(),
+        ))
+    }
+    fn stop_recording(&mut self) -> Result<(), AppError> {
+        Ok(())
+    }
 }
 
 pub fn create_engine(app: &AppHandle) -> Box<dyn PlaybackEngine> {
@@ -240,6 +251,7 @@ pub mod mpv {
 
         fn stop(&mut self) -> Result<(), AppError> {
             if let Some(mpv) = self.mpv.as_mut() {
+                let _ = mpv.set_property("stream-record", "");
                 mpv.command("stop", &[] as &[&str])
                     .map_err(|e| AppError::Playback(e.to_string()))?;
             }
@@ -339,6 +351,27 @@ pub mod mpv {
                 audio_codec: prop_str(mpv, "audio-codec"),
                 error: None,
             }
+        }
+
+        fn supports_recording(&self) -> bool {
+            true
+        }
+
+        fn start_recording(&mut self, path: &str) -> Result<(), AppError> {
+            let mpv = self
+                .mpv
+                .as_mut()
+                .ok_or_else(|| AppError::Playback("mpv not attached".into()))?;
+            mpv.set_property("stream-record", path)
+                .map_err(|e| AppError::Playback(format!("start recording: {e}")))
+        }
+
+        fn stop_recording(&mut self) -> Result<(), AppError> {
+            if let Some(mpv) = self.mpv.as_mut() {
+                mpv.set_property("stream-record", "")
+                    .map_err(|e| AppError::Playback(format!("stop recording: {e}")))?;
+            }
+            Ok(())
         }
     }
 

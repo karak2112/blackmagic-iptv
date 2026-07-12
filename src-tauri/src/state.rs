@@ -18,12 +18,19 @@ pub struct PreviewBounds {
     pub window_height: f64,
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct RecordingState {
+    pub active: bool,
+    pub path: Option<std::path::PathBuf>,
+}
+
 pub struct AppState {
     pub db: Mutex<Database>,
     pub fetcher: HttpFetcher,
     pub playback: Mutex<Box<dyn PlaybackEngine>>,
     pub playback_state: Mutex<PlaybackState>,
     pub preview_bounds: Mutex<Option<PreviewBounds>>,
+    pub recording: Mutex<RecordingState>,
 }
 
 impl AppState {
@@ -35,6 +42,7 @@ impl AppState {
             playback: Mutex::new(crate::playback::create_engine(&app)),
             playback_state: Mutex::new(PlaybackState::default()),
             preview_bounds: Mutex::new(None),
+            recording: Mutex::new(RecordingState::default()),
         })
     }
 }

@@ -1,7 +1,7 @@
 use chrono::Utc;
 use iptv_core::{
-    Channel, ChannelListPage, EpgMatcher, EpgSummary, M3uParser, NowNext, PlaylistSummary, Source,
-    SourceType, StreamStats, UrlValidator, XmltvParser,
+    Channel, ChannelListPage, EpgMatcher, EpgSummary, M3uParser, NowNext, PlaylistSummary,
+    RecordingStatus, Source, SourceType, StreamStats, UrlValidator, XmltvParser,
 };
 use uuid::Uuid;
 
@@ -9,6 +9,7 @@ use crate::db::{new_source_id, Database};
 use crate::error::AppError;
 use crate::fetch::EPG_MAX_BYTES;
 use crate::playback::{set_player_chrome, window_id_from_tauri, PlaybackEngine};
+use crate::recording;
 use crate::state::{AppState, PreviewBounds};
 
 fn is_mobile_platform() -> bool {
@@ -340,6 +341,87 @@ fn end_guide_preview_if_active(
     }
 }
 
+fn stop_recording_if_active(state: &AppState) -> Result<Option<String>, AppError> {
+    let was_active = state.recording.lock().active;
+    if !was_active {
+        return Ok(None);
+    }
+
+    state.playback.lock().stop_recording()?;
+    let path = state
+        .recording
+        .lock()
+        .path
+        .take()
+        .map(|p| p.to_string_lossy().into_owned());
+    state.recording.lock().active = false;
+    Ok(path)
+}
+
+pub fn get_recording_status(state: &AppState) -> RecordingStatus {
+    let rec = state.recording.lock();
+    RecordingStatus {
+        active: rec.active,
+        path: rec.path.as_ref().map(|p| p.to_string_lossy().into_owned()),
+        available: recording::recording_available()
+            && state.playback.lock().supports_recording(),
+    }
+}
+
+pub fn toggle_recording(state: &AppState) -> Result<RecordingStatus, AppError> {
+    if !recording::recording_available() {
+        return Err(AppError::Other(
+            "Recording is only available in the Windows desktop app.".into(),
+        ));
+    }
+
+    if state.playback_state.lock().preview_mode {
+        return Err(AppError::Other(
+            "Recording is not available during guide preview.".into(),
+        ));
+    }
+
+    if state.recording.lock().active {
+        stop_recording_if_active(state)?;
+        return Ok(get_recording_status(state));
+    }
+
+    let channel_id = state
+        .playback_state
+        .lock()
+        .channel_id
+        .clone()
+        .ok_or_else(|| AppError::Other("No channel is playing.".into()))?;
+
+    if !state.playback_state.lock().playing {
+        return Err(AppError::Other("Start playback before recording.".into()));
+    }
+
+    let channel = state
+        .db
+        .lock()
+        .get_channel(&channel_id)?
+        .ok_or_else(|| AppError::Other(format!("channel not found: {channel_id}")))?;
+
+    let programme_title = recording::programme_title_for_channel(state, &channel_id);
+    let dir = recording::recordings_dir()?;
+    let filename = recording::build_recording_filename(
+        &channel.name,
+        programme_title.as_deref(),
+    );
+    let path = recording::unique_recording_path(&dir, &filename);
+    let path_str = path.to_string_lossy().into_owned();
+
+    state.playback.lock().start_recording(&path_str)?;
+
+    let mut rec = state.recording.lock();
+    rec.active = true;
+    rec.path = Some(path);
+
+    tracing::info!("recording started: {}", path_str);
+    Ok(get_recording_status(state))
+}
+
 fn play_channel_internal(
     window: &tauri::WebviewWindow,
     state: &AppState,
@@ -373,6 +455,7 @@ fn play_channel_internal(
             )
         };
         if was_main {
+            stop_recording_if_active(state)?;
             playback.stop()?;
             playback.clear_pip_geometry().ok();
         } else if !preview {
@@ -420,6 +503,7 @@ fn play_channel_internal(
 }
 
 pub fn stop_playback(window: &tauri::WebviewWindow, state: &AppState) -> Result<(), AppError> {
+    stop_recording_if_active(state)?;
     state.playback.lock().stop()?;
     disable_player_surface(window)?;
     let mut ps = state.playback_state.lock();

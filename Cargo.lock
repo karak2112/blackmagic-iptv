@@ -1780,7 +1780,7 @@ checksum = "d98f6fed1fde3f8c21bc40a1abb88dd75e67924f9cffc3ef95607bad8017f8e2"
 
 [[package]]
 name = "iptv-core"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "hex",
@@ -1796,7 +1796,7 @@ dependencies = [
 
 [[package]]
 name = "iptv-player"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "chrono",
  "dirs",

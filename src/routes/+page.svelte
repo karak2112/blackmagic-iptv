@@ -27,6 +27,8 @@
     getStreamStats,
     zapChannel,
     getPlatform,
+    getRecordingStatus,
+    toggleRecording,
   } from "$lib/api";
   import type { Channel, GroupInfo, NowNext, StreamStats, View } from "$lib/types";
 
@@ -79,6 +81,8 @@
     windowHeight: number;
   } | null = null;
   let platform = $state("unknown");
+  let recordingActive = $state(false);
+  let recordingAvailable = $state(false);
 
   const mobilePlatform = $derived(platform === "android" || platform === "ios");
   const guidePreviewSupported = $derived(!mobilePlatform);
@@ -367,6 +371,25 @@
     engineName = ps.engine_name;
     videoAvailable = ps.video_available;
     playbackError = ps.error;
+    try {
+      const rec = await getRecordingStatus();
+      recordingActive = rec.active;
+      recordingAvailable = rec.available;
+    } catch {
+      recordingActive = false;
+      recordingAvailable = false;
+    }
+  }
+
+  async function handleToggleRecord() {
+    try {
+      const rec = await toggleRecording();
+      recordingActive = rec.active;
+      recordingAvailable = rec.available;
+    } catch (e) {
+      playbackError = String(e);
+      console.error(e);
+    }
   }
 
   async function startPlayback(channel: Channel) {
@@ -596,6 +619,9 @@
     onToggleMute={handleToggleMute}
     onReload={handleReload}
     onChannelDelta={handleChannelDelta}
+    recordAvailable={recordingAvailable}
+    recording={recordingActive}
+    onToggleRecord={handleToggleRecord}
   />
 </div>
 
