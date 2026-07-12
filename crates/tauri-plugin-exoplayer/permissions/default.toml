@@ -1,0 +1,5 @@
+"$schema" = "schemas/schema.json"
+
+[default]
+description = "ExoPlayer playback commands for Android."
+permissions = ["allow-load", "allow-play", "allow-pause", "allow-stop", "allow-setVolume", "allow-setMuted", "allow-showPlayer", "allow-hidePlayer", "allow-getStats"]
