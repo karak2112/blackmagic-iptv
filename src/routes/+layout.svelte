@@ -5,8 +5,8 @@
 </script>
 
 <svelte:head>
-  <link rel="icon" href="/tauri.svg" />
-  <title>IPTV Player</title>
+  <link rel="icon" href="/favicon.png" />
+  <title>Black Magic IPTV</title>
 </svelte:head>
 
 {@render children?.()}

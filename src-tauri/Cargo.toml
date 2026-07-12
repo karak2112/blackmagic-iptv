@@ -42,12 +42,16 @@ windows = { version = "0.61", features = [
 
 [features]
 default = ["playback-stub"]
-playback-mpv = ["dep:libmpv2"]
 playback-stub = []
+playback-mpv = ["dep:libmpv2"]
+playback-exoplayer = []
 
 [dependencies.libmpv2]
 version = "4"
 optional = true
+
+[dependencies.tauri-plugin-exoplayer]
+path = "../crates/tauri-plugin-exoplayer"
 
 [dev-dependencies]
 tempfile = "3"

@@ -11,6 +11,71 @@ use crate::fetch::EPG_MAX_BYTES;
 use crate::playback::{set_player_chrome, window_id_from_tauri, PlaybackEngine};
 use crate::state::{AppState, PreviewBounds};
 
+fn is_mobile_platform() -> bool {
+    cfg!(any(target_os = "android", target_os = "ios"))
+}
+
+fn enable_player_surface(window: &tauri::WebviewWindow) -> Result<(), AppError> {
+    if is_mobile_platform() {
+        Ok(())
+    } else {
+        set_player_chrome(window, true)
+    }
+}
+
+fn disable_player_surface(window: &tauri::WebviewWindow) -> Result<(), AppError> {
+    if is_mobile_platform() {
+        Ok(())
+    } else {
+        set_player_chrome(window, false)
+    }
+}
+
+fn attach_playback_window(
+    window: &tauri::WebviewWindow,
+    playback: &mut dyn PlaybackEngine,
+) -> Result<(), AppError> {
+    if is_mobile_platform() {
+        playback.attach_window(0)
+    } else {
+        let wid = window_id_from_tauri(window)?.0;
+        playback.attach_window(wid)
+    }
+}
+
+pub fn platform_name() -> &'static str {
+    #[cfg(target_os = "android")]
+    {
+        "android"
+    }
+    #[cfg(target_os = "ios")]
+    {
+        "ios"
+    }
+    #[cfg(target_os = "windows")]
+    {
+        "windows"
+    }
+    #[cfg(target_os = "linux")]
+    {
+        "linux"
+    }
+    #[cfg(target_os = "macos")]
+    {
+        "macos"
+    }
+    #[cfg(not(any(
+        target_os = "android",
+        target_os = "ios",
+        target_os = "windows",
+        target_os = "linux",
+        target_os = "macos"
+    )))]
+    {
+        "unknown"
+    }
+}
+
 fn apply_preview_geometry(state: &AppState, playback: &mut dyn PlaybackEngine) {
     if !state.playback_state.lock().preview_mode {
         return;
@@ -201,7 +266,7 @@ pub fn set_preview_bounds(
     window_width: f64,
     window_height: f64,
 ) -> Result<(), AppError> {
-    set_player_chrome(window, true)?;
+    enable_player_surface(window)?;
 
     let bounds = PreviewBounds {
         client_x,
@@ -249,7 +314,7 @@ pub fn hide_preview_surface(
         ps.playing && !ps.preview_mode
     };
     if !main_player_active {
-        set_player_chrome(window, false)?;
+        disable_player_surface(window)?;
     }
 
     if was_preview {
@@ -295,9 +360,8 @@ fn play_channel_internal(
 
     UrlValidator::default().validate_stream_url(&channel.stream_url)?;
 
-    set_player_chrome(window, true)?;
+    enable_player_surface(window)?;
 
-    let wid = window_id_from_tauri(window)?.0;
     let saved_volume = state.playback_state.lock().volume;
     let (engine_name, video_available) = {
         let mut playback = state.playback.lock();
@@ -314,7 +378,7 @@ fn play_channel_internal(
         } else if !preview {
             playback.clear_pip_geometry().ok();
         }
-        playback.attach_window(wid)?;
+        attach_playback_window(window, playback.as_mut())?;
         playback.load(&channel.stream_url)?;
         playback.play()?;
         if preview {
@@ -339,9 +403,11 @@ fn play_channel_internal(
     ps.video_available = video_available;
 
     if !video_available {
-        ps.error = Some(
-            "Video engine unavailable. Install libmpv and rebuild with playback-mpv.".into(),
-        );
+        ps.error = Some(if cfg!(target_os = "android") {
+            "Video engine unavailable.".into()
+        } else {
+            "Video engine unavailable. Install libmpv and rebuild with playback-mpv.".into()
+        });
     }
     drop(ps);
 
@@ -355,7 +421,7 @@ fn play_channel_internal(
 
 pub fn stop_playback(window: &tauri::WebviewWindow, state: &AppState) -> Result<(), AppError> {
     state.playback.lock().stop()?;
-    set_player_chrome(window, false)?;
+    disable_player_surface(window)?;
     let mut ps = state.playback_state.lock();
     ps.playing = false;
     ps.paused = false;

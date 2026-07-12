@@ -1,5 +1,6 @@
 use crate::error::AppError;
 use iptv_core::StreamStats;
+use tauri::AppHandle;
 
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
@@ -36,19 +37,26 @@ pub trait PlaybackEngine: Send {
     fn stream_stats(&self) -> StreamStats;
 }
 
-pub fn create_engine() -> Box<dyn PlaybackEngine> {
-    create_engine_with_mode(false)
+pub fn create_engine(app: &AppHandle) -> Box<dyn PlaybackEngine> {
+    create_engine_with_mode(app, false)
 }
 
-fn create_engine_with_mode(preview: bool) -> Box<dyn PlaybackEngine> {
-    #[cfg(feature = "playback-mpv")]
+fn create_engine_with_mode(app: &AppHandle, preview: bool) -> Box<dyn PlaybackEngine> {
+    #[cfg(target_os = "android")]
     {
+        let _ = preview;
+        return Box::new(crate::playback::exoplayer::ExoPlayerEngine::new(app.clone()));
+    }
+
+    #[cfg(all(not(target_os = "android"), feature = "playback-mpv"))]
+    {
+        let _ = app;
         return Box::new(mpv::MpvEngine::new(preview));
     }
 
-    #[cfg(not(feature = "playback-mpv"))]
+    #[cfg(not(any(target_os = "android", all(not(target_os = "android"), feature = "playback-mpv"))))]
     {
-        let _ = preview;
+        let _ = (app, preview);
         Box::new(stub::StubEngine)
     }
 }
@@ -329,6 +337,7 @@ pub mod mpv {
                 audio_bitrate_kbps,
                 video_codec: prop_str(mpv, "video-codec"),
                 audio_codec: prop_str(mpv, "audio-codec"),
+                error: None,
             }
         }
     }

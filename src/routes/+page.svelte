@@ -26,6 +26,7 @@
     getPlaybackState,
     getStreamStats,
     zapChannel,
+    getPlatform,
   } from "$lib/api";
   import type { Channel, GroupInfo, NowNext, StreamStats, View } from "$lib/types";
 
@@ -77,9 +78,13 @@
     windowWidth: number;
     windowHeight: number;
   } | null = null;
+  let platform = $state("unknown");
+
+  const mobilePlatform = $derived(platform === "android" || platform === "ios");
+  const guidePreviewSupported = $derived(!mobilePlatform);
 
   const guidePreviewActive = $derived(
-    view === "guide" && (previewMode || guidePreviewLoading),
+    guidePreviewSupported && view === "guide" && (previewMode || guidePreviewLoading),
   );
 
   const guidePreviewStatus = $derived.by((): "idle" | "waiting" | "loading" | "live" | "error" | "unavailable" => {
@@ -111,6 +116,9 @@
       if (!playerVisible || previewMode) return;
       try {
         streamStats = await getStreamStats();
+        if (streamStats?.error) {
+          playbackError = streamStats.error;
+        }
       } catch {
         /* ignore */
       }
@@ -149,6 +157,7 @@
   }
 
   async function bootstrap() {
+    platform = await getPlatform();
     const settings = await getSettings();
     hiddenGroups = settings.hidden_groups ?? [];
     volume = settings.volume ?? 100;
@@ -297,6 +306,7 @@
   }
 
   function scheduleGuidePreview(channelId: string) {
+    if (!guidePreviewSupported) return;
     if (previewDebounce) clearTimeout(previewDebounce);
     previewDebounce = setTimeout(() => {
       void startGuidePreview(channelId);
@@ -324,8 +334,10 @@
       await syncPlaybackState();
       view = next;
       await loadGuideChannels();
-      await handlePreviewBounds(defaultPreviewBounds());
-      kickGuidePreviewIfReady();
+      if (guidePreviewSupported) {
+        await handlePreviewBounds(defaultPreviewBounds());
+        kickGuidePreviewIfReady();
+      }
       return;
     }
 

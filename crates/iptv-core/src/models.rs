@@ -56,6 +56,7 @@ pub struct StreamStats {
     pub audio_bitrate_kbps: Option<f64>,
     pub video_codec: Option<String>,
     pub audio_codec: Option<String>,
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

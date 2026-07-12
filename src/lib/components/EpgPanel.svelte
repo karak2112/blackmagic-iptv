@@ -159,6 +159,24 @@
     max-width: calc(100% - 336px);
   }
 
+  @media (max-width: 768px) {
+    .guide,
+    .guide.preview-active {
+      margin-right: 0;
+      max-width: 100%;
+      padding-right: 12px;
+    }
+
+    .guide-row {
+      padding: 10px 12px;
+      min-height: 52px;
+    }
+
+    .ch-name {
+      font-size: 14px;
+    }
+  }
+
   header {
     padding: 16px 0 12px;
     border-bottom: 1px solid var(--border);

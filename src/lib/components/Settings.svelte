@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getVersion } from "@tauri-apps/api/app";
   import { open } from "@tauri-apps/plugin-dialog";
+  import BrandLogo from "$lib/components/BrandLogo.svelte";
   import {
     loadPlaylist,
     loadEpg,
@@ -41,11 +42,15 @@
     hiddenGroupsInput = (settings.hidden_groups ?? []).join(", ");
     fontScale = settings.font_scale ?? 100;
     resumeOnStartup = settings.resume_on_startup !== false;
+    try {
+      appVersion = await getVersion();
+    } catch {
+      appVersion = "";
+    }
   }
 
   $effect(() => {
     refresh();
-    getVersion().then((v) => (appVersion = v));
   });
 
   async function pickM3uFile() {
@@ -237,6 +242,9 @@
 
   <section class="about">
     <h3>About</h3>
+    <div class="about-logo">
+      <BrandLogo variant="full" size={480} alt="Black Magic Software" />
+    </div>
     <p class="about-title">Black Magic IPTV</p>
     {#if appVersion}
       <p class="about-meta">Version {appVersion}</p>
@@ -368,24 +376,30 @@
     word-break: break-all;
   }
 
+  .about-logo {
+    margin: 0 0 20px;
+    max-width: 480px;
+  }
+
   .about-title {
-    margin: 0 0 4px;
-    font-size: 18px;
+    margin: 0 0 6px;
+    font-size: 22px;
     font-weight: 700;
+    color: var(--text-primary);
   }
 
   .about-meta,
   .about-publisher,
   .about-copy {
-    margin: 0 0 8px;
-    font-size: 14px;
-    color: var(--text-secondary);
-    line-height: 1.5;
+    margin: 0 0 10px;
+    font-size: 15px;
+    color: var(--text-primary);
+    line-height: 1.55;
   }
 
   .about-copy.muted {
-    color: var(--text-muted);
-    font-size: 13px;
+    color: var(--text-secondary);
+    font-size: 14px;
   }
 
   .status {

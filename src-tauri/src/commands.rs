@@ -219,3 +219,8 @@ pub fn save_settings(
 pub fn list_sources(state: State<'_, AppState>) -> Result<Vec<Source>, crate::error::AppError> {
     services::list_sources(&state)
 }
+
+#[tauri::command]
+pub fn get_platform() -> &'static str {
+    services::platform_name()
+}

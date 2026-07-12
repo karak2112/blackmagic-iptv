@@ -76,6 +76,7 @@ export interface StreamStats {
   audio_bitrate_kbps: number | null;
   video_codec: string | null;
   audio_codec: string | null;
+  error: string | null;
 }
 
 export interface AppSettings {

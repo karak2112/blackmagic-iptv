@@ -18,9 +18,18 @@ pub fn run() {
         )
         .init();
 
-    tauri::Builder::default()
+    #[cfg(target_os = "android")]
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_exoplayer::init());
+
+    #[cfg(not(target_os = "android"))]
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init());
+
+    builder
         .setup(|app| {
             let data_dir = app
                 .path()
@@ -28,7 +37,7 @@ pub fn run() {
                 .expect("failed to resolve app data dir");
             std::fs::create_dir_all(&data_dir)?;
             let db_path = data_dir.join("iptv.db");
-            let app_state = AppState::new(db_path)?;
+            let app_state = AppState::new(db_path, app.handle().clone())?;
             app.manage(app_state);
             Ok(())
         })
@@ -56,6 +65,7 @@ pub fn run() {
             commands::save_settings,
             commands::get_channel,
             commands::list_sources,
+            commands::get_platform,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

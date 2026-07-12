@@ -1,5 +1,5 @@
 <script lang="ts">
-  import BlackMageLogo from "$lib/components/BlackMageLogo.svelte";
+  import BrandLogo from "$lib/components/BrandLogo.svelte";
   import type { View } from "$lib/types";
 
   interface Props {
@@ -18,8 +18,8 @@
 
 <nav class="nav" aria-label="Main navigation">
   <div class="logo" title="Black Magic IPTV · BlackMagicSoftware.net">
-    <BlackMageLogo size={36} />
-    <span class="logo-sub">Black Magic</span>
+    <BrandLogo variant="icon" size={52} />
+    <span class="logo-sub">IPTV</span>
   </div>
   {#each items as item}
     <button
@@ -48,14 +48,18 @@
     padding: 16px 0;
     gap: 8px;
     flex-shrink: 0;
+    overflow: visible;
   }
 
   .logo {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     margin-bottom: 16px;
-    padding: 8px;
+    padding: 4px 2px;
+    width: 100%;
+    overflow: visible;
     line-height: 1.1;
   }
 

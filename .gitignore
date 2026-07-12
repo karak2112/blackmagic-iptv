@@ -18,3 +18,9 @@ third_party/tools/
 
 # Local app data
 *.db
+
+# Android (Tauri gen/android — init creates tracked files; ignore local build artifacts)
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/local.properties
+src-tauri/gen/android/**/build/
+src-tauri/gen/android/.idea/

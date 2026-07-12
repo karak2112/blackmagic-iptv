@@ -1812,6 +1812,7 @@ dependencies = [
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
+ "tauri-plugin-exoplayer",
  "tauri-plugin-opener",
  "tempfile",
  "thiserror 2.0.18",
@@ -3860,6 +3861,18 @@ dependencies = [
  "tauri-plugin-fs",
  "thiserror 2.0.18",
  "url",
+]
+
+[[package]]
+name = "tauri-plugin-exoplayer"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin",
+ "thiserror 2.0.18",
+ "tracing",
 ]
 
 [[package]]

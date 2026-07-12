@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Channel, NowNext } from "$lib/types";
   import { toggleFavorite } from "$lib/api";
+  import { channelInitial } from "$lib/channelDisplay";
 
   interface Props {
     channels: Channel[];
@@ -39,6 +40,12 @@
   let listEl = $state<HTMLUListElement | null>(null);
   let scrollSaveTimer: ReturnType<typeof setTimeout> | null = null;
   let restoredScroll = $state(false);
+  let failedLogos = $state(new Set<string>());
+
+  function markLogoFailed(channelId: string) {
+    if (failedLogos.has(channelId)) return;
+    failedLogos = new Set([...failedLogos, channelId]);
+  }
 
   async function handleFavorite(e: Event, channelId: string) {
     e.stopPropagation();
@@ -115,10 +122,15 @@
           }}
         >
           <div class="logo-wrap">
-            {#if channel.logo_url}
-              <img src={channel.logo_url} alt="" loading="lazy" />
+            {#if channel.logo_url && !failedLogos.has(channel.id)}
+              <img
+                src={channel.logo_url}
+                alt=""
+                loading="lazy"
+                onerror={() => markLogoFailed(channel.id)}
+              />
             {:else}
-              <span class="logo-fallback">{channel.name.charAt(0)}</span>
+              <span class="logo-fallback">{channelInitial(channel.name)}</span>
             {/if}
           </div>
           <div class="info">

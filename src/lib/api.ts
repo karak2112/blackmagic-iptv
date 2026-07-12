@@ -142,3 +142,7 @@ export async function saveSettings(settings: Partial<AppSettings>): Promise<void
 export async function listSources(): Promise<Source[]> {
   return invoke("list_sources");
 }
+
+export async function getPlatform(): Promise<string> {
+  return invoke("get_platform");
+}

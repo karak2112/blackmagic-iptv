@@ -10,6 +10,9 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "tauri": "tauri",
+    "tauri:android:dev": "tauri android dev",
+    "tauri:android:build": "tauri android build",
+    "icons": "node scripts/generate-brand-assets.mjs && tauri icon static/brand/app-icon-1024.png -o src-tauri/icons && node scripts/patch-android-icon-bg.mjs",
     "fetch-mpv": "node scripts/fetch-mpv.mjs",
     "generate-mpv-lib": "powershell -ExecutionPolicy Bypass -File scripts/generate-mpv-lib.ps1"
   },

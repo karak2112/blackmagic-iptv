@@ -110,6 +110,120 @@ npm run tauri build
 
 From WSL alone, `npm run tauri build` produces a **Linux** binary, not a Windows installer. Installers (NSIS/MSI) come from a Windows build under `src-tauri/target/release/bundle/`.
 
+## Building for Android
+
+Android uses **ExoPlayer** (Media3) via the in-repo `tauri-plugin-exoplayer` crate. Windows builds are unchanged (libmpv).
+
+### WSL vs Windows (important)
+
+**Do not build Android from WSL using the Windows Android SDK path** (`/mnt/c/Users/tony/...`). The Windows NDK does not include Linux cross-compiler toolchains, so you will see:
+
+```text
+Missing tool `prebuilt toolchain`; tried at ".../prebuilt/linux-x86_64"
+```
+
+Use one of these instead:
+
+| Approach | When to use |
+|----------|-------------|
+| **Build on Windows (recommended)** | You already use robocopy + Windows for desktop releases |
+| **Linux SDK inside WSL** | Separate `~/Android/Sdk` installed via `sdkmanager` (Linux NDK) |
+| **Physical phone** | USB debugging — no emulator required |
+
+### Prerequisites (Windows build — recommended)
+
+- **Android Studio** on Windows (SDK + NDK installed)
+- **Node.js** and **Rust** on Windows (same as desktop Tauri build)
+- Environment variables in **PowerShell** (User env vars or each session):
+
+```powershell
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+$env:NDK_HOME = "$env:ANDROID_HOME\ndk\27.2.12479018"   # match your NDK folder name
+$env:PATH += ";$env:ANDROID_HOME\platform-tools"
+```
+
+### First-time init (Windows PowerShell)
+
+```powershell
+robocopy \\wsl$\Ubuntu\home\tony\iptv C:\dev\iptv /E /XD target node_modules .git .venv-mpv .svelte-kit build /R:1 /W:1
+cd C:\dev\iptv
+npm install
+npm run tauri android init -- --ci
+```
+
+### Dev on emulator or phone (Windows)
+
+1. Start an **Android Virtual Device** in Android Studio (*Device Manager*), **or** plug in a phone with **USB debugging** enabled.
+2. Verify device is visible:
+
+```powershell
+adb devices
+```
+
+3. Run:
+
+```powershell
+npm run tauri:android:dev
+```
+
+### WSL-only alternative (advanced)
+
+Install a **Linux** SDK/NDK under WSL (not the Windows path):
+
+```bash
+export ANDROID_HOME="$HOME/Android/Sdk"
+# install cmdline-tools, then:
+sdkmanager "platform-tools" "platforms;android-36" "build-tools;36.0.0" "ndk;27.2.12479018"
+export NDK_HOME="$ANDROID_HOME/ndk/27.2.12479018"
+```
+
+You can still use a Windows emulator if `adb` from Windows sees the device; the **NDK used to compile** must be the Linux one in WSL.
+
+### Prerequisites (WSL — only if using Linux SDK)
+
+- **Java 17+** (OpenJDK or Android Studio)
+- **Android SDK** with `ANDROID_HOME` set
+- Rust Android targets: `aarch64-linux-android`, etc.
+
+From WSL/Ubuntu:
+
+```bash
+bash scripts/setup-android.sh
+```
+
+### First-time init
+
+Requires Java in `PATH`:
+
+```bash
+npm install
+npm run tauri android init -- --ci
+```
+
+This creates `src-tauri/gen/android/`. If some Gradle files are missing, run `npm run tauri:android:dev` once — Tauri finishes generating the Android project on first build.
+
+### Dev on emulator or device
+
+```bash
+npm run tauri:android:dev
+```
+
+Enable USB debugging for a physical device, or start an Android emulator from Android Studio.
+
+### Release APK / AAB
+
+```bash
+npm run tauri:android:build
+```
+
+Outputs land under `src-tauri/gen/android/app/build/outputs/` (APK and AAB are produced automatically — no `bundle.targets` entry needed).
+
+### Android vs Windows differences (v0.1.x)
+
+- Guide **live PIP preview** is disabled on mobile (tap/Enter to play full-screen)
+- Video renders in a native ExoPlayer layer behind the WebView controls
+- Playlist files use the system file picker (content URIs)
+
 ## Usage
 
 1. Open **Settings** and load your M3U playlist (file or URL).

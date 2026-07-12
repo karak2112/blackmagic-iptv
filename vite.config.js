@@ -25,8 +25,8 @@ export default defineConfig(async () => ({
         }
       : undefined,
     watch: {
-      // 3. tell Vite to ignore watching `src-tauri`
-      ignored: ["**/src-tauri/**"],
+      // Ignore Rust build output — Cargo locks .exe files here during android dev.
+      ignored: ["**/src-tauri/**", "**/target/**"],
     },
   },
 }));

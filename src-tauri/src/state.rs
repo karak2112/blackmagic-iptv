@@ -6,6 +6,7 @@ use parking_lot::Mutex;
 use crate::db::Database;
 use crate::fetch::HttpFetcher;
 use crate::playback::engine::PlaybackEngine;
+use tauri::AppHandle;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PreviewBounds {
@@ -26,12 +27,12 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(db_path: std::path::PathBuf) -> Result<Self, crate::error::AppError> {
+    pub fn new(db_path: std::path::PathBuf, app: AppHandle) -> Result<Self, crate::error::AppError> {
         let db = Database::open(&db_path)?;
         Ok(Self {
             db: Mutex::new(db),
             fetcher: HttpFetcher::default(),
-            playback: Mutex::new(crate::playback::create_engine()),
+            playback: Mutex::new(crate::playback::create_engine(&app)),
             playback_state: Mutex::new(PlaybackState::default()),
             preview_bounds: Mutex::new(None),
         })

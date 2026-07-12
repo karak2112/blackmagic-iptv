@@ -57,6 +57,11 @@
   let isFullscreen = $state(false);
   let showMiniEpg = $state(false);
 
+  const nativeVideoEngine = $derived(
+    engineName === "libmpv" || engineName === "exoplayer",
+  );
+  const isExoPlayer = $derived(engineName === "exoplayer");
+
   function bumpControls() {
     showControls = true;
     if (hideTimer) clearTimeout(hideTimer);
@@ -132,29 +137,30 @@
 {#if visible && channel}
   <div
     class="player"
-    class:has-video={videoAvailable || engineName === "libmpv"}
+    class:has-video={videoAvailable || nativeVideoEngine}
     class:guide-preview={guidePreview}
     onmousemove={guidePreview ? undefined : bumpControls}
     onclick={guidePreview ? undefined : bumpControls}
-    onkeydown={guidePreview ? undefined : handleKeydown}
     role={guidePreview ? "presentation" : "dialog"}
     aria-label={guidePreview ? undefined : "Player"}
     aria-hidden={guidePreview ? "true" : undefined}
-    tabindex={guidePreview ? undefined : -1}
   >
-    <div class="video-area" ondblclick={guidePreview ? undefined : toggleFullscreen}>
-      <div class="video-placeholder" class:has-video={videoAvailable || engineName === "libmpv"}>
+    {#snippet videoSurface()}
+      <div class="video-placeholder" class:has-video={videoAvailable || nativeVideoEngine}>
         {#if guidePreview}
           <!-- Full-window transparent layer: mpv shows through (same path as full player). -->
-        {:else if !videoAvailable && engineName !== "libmpv"}
+        {:else if !videoAvailable && !nativeVideoEngine}
           <p class="channel-name">{channel.name}</p>
           <p class="hint warn">
             {playbackError ??
               "Video engine not active. Install libmpv (see README) and restart the app."}
           </p>
           <p class="hint engine">Engine: {engineName}</p>
+        {:else if isExoPlayer && playbackError}
+          <p class="hint warn">{playbackError}</p>
+          <p class="hint engine">Engine: {engineName}</p>
         {:else if playing && !paused}
-          <!-- libmpv renders into the native window behind this transparent layer -->
+          <!-- Native video (libmpv / ExoPlayer) renders behind this transparent layer -->
         {:else if paused}
           <p class="hint">Paused</p>
         {:else}
@@ -170,7 +176,22 @@
       />
 
       <PlayerMiniEpg {channel} {nowNext} visible={showMiniEpg} />
-    </div>
+    {/snippet}
+
+    {#if guidePreview}
+      <div class="video-area">
+        {@render videoSurface()}
+      </div>
+    {:else}
+      <button
+        type="button"
+        class="video-area"
+        aria-label="Toggle fullscreen"
+        ondblclick={toggleFullscreen}
+      >
+        {@render videoSurface()}
+      </button>
+    {/if}
 
     {#if showControls && !guidePreview}
       <div class="overlay">
@@ -254,6 +275,19 @@
     flex: 1;
     position: relative;
     cursor: pointer;
+  }
+
+  button.video-area {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    border: none;
+    margin: 0;
+    padding: 0;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
   }
 
   .video-placeholder {
