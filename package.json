@@ -14,6 +14,7 @@
     "tauri:android:build": "tauri android build",
     "icons": "node scripts/generate-brand-assets.mjs && tauri icon static/brand/app-icon-1024.png -o src-tauri/icons && node scripts/patch-android-icon-bg.mjs",
     "fetch-mpv": "node scripts/fetch-mpv.mjs",
+    "fetch-ffmpeg": "node scripts/fetch-ffmpeg.mjs",
     "generate-mpv-lib": "powershell -ExecutionPolicy Bypass -File scripts/generate-mpv-lib.ps1"
   },
   "license": "MIT",

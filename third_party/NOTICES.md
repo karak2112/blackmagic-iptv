@@ -16,3 +16,16 @@ The MIT license on this application's own source code does not apply to libmpv.
 
 Run `scripts/fetch-mpv-windows.ps1` (Windows) or `scripts/fetch-mpv-windows.sh`
 (WSL) to download pinned binaries into `third_party/mpv/win/`.
+
+## ffmpeg
+
+Stream recording uses **ffmpeg** (`ffmpeg.exe`), from the
+[gyan.dev Windows builds](https://www.gyan.dev/ffmpeg/builds/) (essentials package).
+
+- **License:** GNU General Public License v3.0 or later (typical for these static builds)
+- **Source:** https://ffmpeg.org/
+
+When you **distribute** IPTV Player with ffmpeg bundled, GPL obligations may apply.
+For personal/local use only, this is not a concern.
+
+Run `npm run fetch-ffmpeg` to download into `third_party/ffmpeg/win/`.

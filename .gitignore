@@ -13,6 +13,8 @@ vite.config.ts.timestamp-*
 # libmpv binaries (fetch via scripts/fetch-mpv-windows.*)
 third_party/mpv/win/*.dll
 third_party/mpv/win/*.lib
+third_party/ffmpeg/win/ffmpeg.exe
+third_party/ffmpeg/win/VERSION
 .venv-mpv/
 third_party/tools/
 

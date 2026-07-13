@@ -30,7 +30,7 @@
     getRecordingStatus,
     toggleRecording,
   } from "$lib/api";
-  import type { Channel, GroupInfo, NowNext, StreamStats, View } from "$lib/types";
+  import type { Channel, GroupInfo, NowNext, RecordingStatus, StreamStats, View } from "$lib/types";
 
   let view = $state<View>("browse");
   let groups = $state<GroupInfo[]>([]);
@@ -82,7 +82,10 @@
   } | null = null;
   let platform = $state("unknown");
   let recordingActive = $state(false);
+  let recordingStarting = $state(false);
+  let recordingStopping = $state(false);
   let recordingAvailable = $state(false);
+  let recordingBusy = $state(false);
 
   const mobilePlatform = $derived(platform === "android" || platform === "ios");
   const guidePreviewSupported = $derived(!mobilePlatform);
@@ -117,7 +120,7 @@
   function startStatsPolling() {
     stopStatsPolling();
     const poll = async () => {
-      if (!playerVisible || previewMode) return;
+      if (!playerVisible || previewMode || recordingActive || recordingStarting || recordingStopping) return;
       try {
         streamStats = await getStreamStats();
         if (streamStats?.error) {
@@ -363,6 +366,22 @@
     loadChannelPage(0, true);
   }
 
+  function applyRecordingStatus(rec: RecordingStatus) {
+    recordingActive = rec.active;
+    recordingStarting = rec.starting;
+    recordingStopping = rec.stopping;
+    recordingAvailable = rec.available;
+  }
+
+  async function waitForRecordingSettled() {
+    for (let i = 0; i < 120; i++) {
+      const rec = await getRecordingStatus();
+      applyRecordingStatus(rec);
+      if (!rec.starting && !rec.stopping) return;
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+
   async function syncPlaybackState() {
     const ps = await getPlaybackState();
     playing = ps.playing;
@@ -373,22 +392,28 @@
     playbackError = ps.error;
     try {
       const rec = await getRecordingStatus();
-      recordingActive = rec.active;
-      recordingAvailable = rec.available;
+      applyRecordingStatus(rec);
     } catch {
       recordingActive = false;
+      recordingStarting = false;
+      recordingStopping = false;
       recordingAvailable = false;
     }
   }
 
   async function handleToggleRecord() {
+    if (recordingBusy || recordingStarting || recordingStopping) return;
+    recordingBusy = true;
     try {
       const rec = await toggleRecording();
-      recordingActive = rec.active;
-      recordingAvailable = rec.available;
+      applyRecordingStatus(rec);
+      await waitForRecordingSettled();
+      await syncPlaybackState();
     } catch (e) {
       playbackError = String(e);
       console.error(e);
+    } finally {
+      recordingBusy = false;
     }
   }
 
@@ -620,7 +645,8 @@
     onReload={handleReload}
     onChannelDelta={handleChannelDelta}
     recordAvailable={recordingAvailable}
-    recording={recordingActive}
+    recording={recordingActive || recordingStopping}
+    recordingBusy={recordingBusy || recordingStarting || recordingStopping}
     onToggleRecord={handleToggleRecord}
   />
 </div>

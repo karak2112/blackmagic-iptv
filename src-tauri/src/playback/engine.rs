@@ -35,17 +35,6 @@ pub trait PlaybackEngine: Send {
     fn is_available(&self) -> bool;
     fn engine_name(&self) -> &'static str;
     fn stream_stats(&self) -> StreamStats;
-    fn supports_recording(&self) -> bool {
-        false
-    }
-    fn start_recording(&mut self, _path: &str) -> Result<(), AppError> {
-        Err(AppError::Other(
-            "Recording is not supported on this platform.".into(),
-        ))
-    }
-    fn stop_recording(&mut self) -> Result<(), AppError> {
-        Ok(())
-    }
 }
 
 pub fn create_engine(app: &AppHandle) -> Box<dyn PlaybackEngine> {
@@ -147,11 +136,13 @@ pub mod mpv {
     use libmpv2::Mpv;
 
     use super::*;
+    use crate::playback::mpv_event_pump::MpvEventPump;
 
     pub struct MpvEngine {
         mpv: Option<Mpv>,
         attached_wid: Option<i64>,
         preview: bool,
+        event_pump: Option<MpvEventPump>,
     }
 
     fn normalize_wid(wid: i64) -> i64 {
@@ -171,7 +162,16 @@ pub mod mpv {
                 mpv: None,
                 attached_wid: None,
                 preview,
+                event_pump: None,
             }
+        }
+
+        fn teardown_mpv(&mut self) {
+            if let Some(pump) = self.event_pump.take() {
+                pump.stop();
+            }
+            self.mpv = None;
+            self.attached_wid = None;
         }
 
         fn ensure_mpv(&mut self, wid: i64) -> Result<&mut Mpv, AppError> {
@@ -180,8 +180,7 @@ pub mod mpv {
                 return Ok(self.mpv.as_mut().expect("mpv checked above"));
             }
 
-            // Different target window — recreate mpv.
-            self.mpv = None;
+            self.teardown_mpv();
 
             tracing::info!(
                 "initializing libmpv for wid={wid} preview={}",
@@ -211,6 +210,7 @@ pub mod mpv {
             })
             .map_err(|e| AppError::Playback(format!("mpv init: {e}")))?;
 
+            self.event_pump = Some(MpvEventPump::spawn(&mpv));
             self.mpv = Some(mpv);
             self.attached_wid = Some(wid);
             Ok(self.mpv.as_mut().expect("mpv just set"))
@@ -227,6 +227,12 @@ pub mod mpv {
                 .mpv
                 .as_mut()
                 .ok_or_else(|| AppError::Playback("mpv not attached".into()))?;
+            if url.starts_with("udp://") {
+                let _ = mpv.set_property("cache", "no");
+                let _ = mpv.set_property("demuxer-lavf-probesize", 32768i64);
+                let _ = mpv.set_property("demuxer-lavf-analyzeduration", 0i64);
+                let _ = mpv.set_property("network-timeout", 5i64);
+            }
             mpv.command("loadfile", &[url, "replace"])
                 .map_err(|e| AppError::Playback(e.to_string()))
         }
@@ -251,7 +257,6 @@ pub mod mpv {
 
         fn stop(&mut self) -> Result<(), AppError> {
             if let Some(mpv) = self.mpv.as_mut() {
-                let _ = mpv.set_property("stream-record", "");
                 mpv.command("stop", &[] as &[&str])
                     .map_err(|e| AppError::Playback(e.to_string()))?;
             }
@@ -259,8 +264,7 @@ pub mod mpv {
         }
 
         fn detach(&mut self) {
-            self.mpv = None;
-            self.attached_wid = None;
+            self.teardown_mpv();
         }
 
         fn set_pip_geometry(
@@ -351,27 +355,6 @@ pub mod mpv {
                 audio_codec: prop_str(mpv, "audio-codec"),
                 error: None,
             }
-        }
-
-        fn supports_recording(&self) -> bool {
-            true
-        }
-
-        fn start_recording(&mut self, path: &str) -> Result<(), AppError> {
-            let mpv = self
-                .mpv
-                .as_mut()
-                .ok_or_else(|| AppError::Playback("mpv not attached".into()))?;
-            mpv.set_property("stream-record", path)
-                .map_err(|e| AppError::Playback(format!("start recording: {e}")))
-        }
-
-        fn stop_recording(&mut self) -> Result<(), AppError> {
-            if let Some(mpv) = self.mpv.as_mut() {
-                mpv.set_property("stream-record", "")
-                    .map_err(|e| AppError::Playback(format!("stop recording: {e}")))?;
-            }
-            Ok(())
         }
     }
 

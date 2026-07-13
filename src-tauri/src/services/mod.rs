@@ -4,12 +4,13 @@ use iptv_core::{
     RecordingStatus, Source, SourceType, StreamStats, UrlValidator, XmltvParser,
 };
 use uuid::Uuid;
+use tauri::{AppHandle, Manager};
 
 use crate::db::{new_source_id, Database};
 use crate::error::AppError;
 use crate::fetch::EPG_MAX_BYTES;
 use crate::playback::{set_player_chrome, window_id_from_tauri, PlaybackEngine};
-use crate::recording;
+use crate::recording::{self, pick_udp_port, udp_playback_url, FfmpegRecording};
 use crate::state::{AppState, PreviewBounds};
 
 fn is_mobile_platform() -> bool {
@@ -341,37 +342,163 @@ fn end_guide_preview_if_active(
     }
 }
 
-fn stop_recording_if_active(state: &AppState) -> Result<Option<String>, AppError> {
-    let was_active = state.recording.lock().active;
-    if !was_active {
-        return Ok(None);
+pub(crate) struct RecordingStartParams {
+    stream_url: String,
+    path: std::path::PathBuf,
+    playback_url: String,
+    udp_port: u16,
+    saved_volume: f64,
+    muted: bool,
+}
+
+fn stop_recording_if_active(
+    state: &AppState,
+    playback: Option<&mut dyn PlaybackEngine>,
+    resume_playback: bool,
+) -> Result<Option<String>, AppError> {
+    let snapshot = {
+        let rec = state.recording.lock();
+        if !rec.active {
+            return Ok(None);
+        }
+        (rec.source_url.clone(), rec.path.clone())
+    };
+
+    if let Some(session) = state.ffmpeg_recording.lock().take() {
+        session.stop()?;
     }
 
-    state.playback.lock().stop_recording()?;
-    let path = state
-        .recording
-        .lock()
-        .path
-        .take()
-        .map(|p| p.to_string_lossy().into_owned());
-    state.recording.lock().active = false;
-    Ok(path)
+    if resume_playback {
+        if let Some(url) = snapshot.0 {
+            let saved_volume = state.playback_state.lock().volume;
+            let muted = state.playback_state.lock().muted;
+            if let Some(pb) = playback {
+                pb.load(&url)?;
+                pb.play()?;
+                pb.set_muted(muted)?;
+                pb.set_volume(saved_volume)?;
+            } else {
+                let mut pb = state.playback.lock();
+                pb.load(&url)?;
+                pb.play()?;
+                pb.set_muted(muted)?;
+                pb.set_volume(saved_volume)?;
+            }
+        }
+    }
+
+    let mut rec = state.recording.lock();
+    rec.active = false;
+    rec.starting = false;
+    rec.stopping = false;
+    rec.path = None;
+    rec.source_url = None;
+    Ok(snapshot
+        .1
+        .map(|p| p.to_string_lossy().into_owned()))
+}
+
+pub(crate) struct ToggleRecordingOutcome {
+    pub status: RecordingStatus,
+    pub start: Option<RecordingStartParams>,
+    pub spawn_stop: bool,
+}
+
+fn recording_start_worker(state: &AppState, params: RecordingStartParams) {
+    let result = recording_start_blocking(state, &params);
+    let mut rec = state.recording.lock();
+    rec.starting = false;
+    match result {
+        Ok(()) => {
+            rec.active = true;
+            tracing::info!(
+                "recording started: {}",
+                params.path.to_string_lossy()
+            );
+        }
+        Err(e) => {
+            tracing::error!("recording start failed: {e}");
+            rec.path = None;
+            rec.source_url = None;
+            state.playback_state.lock().error = Some(e.to_string());
+        }
+    }
+}
+
+fn recording_start_blocking(
+    state: &AppState,
+    params: &RecordingStartParams,
+) -> Result<(), AppError> {
+    {
+        let mut playback = state.playback.lock();
+        playback.stop()?;
+    }
+
+    std::thread::sleep(std::time::Duration::from_millis(250));
+
+    let session = match FfmpegRecording::start(
+        &params.stream_url,
+        &params.path,
+        params.udp_port,
+    ) {
+        Ok(session) => session,
+        Err(e) => {
+            let _ = std::fs::remove_file(&params.path);
+            let mut playback = state.playback.lock();
+            playback.load(&params.stream_url)?;
+            playback.play()?;
+            playback.set_muted(params.muted)?;
+            playback.set_volume(params.saved_volume)?;
+            return Err(e);
+        }
+    };
+
+    {
+        let mut playback = state.playback.lock();
+        if let Err(e) = playback.load(&params.playback_url) {
+            let _ = state.ffmpeg_recording.lock().take().map(FfmpegRecording::stop);
+            let _ = std::fs::remove_file(&params.path);
+            playback.load(&params.stream_url)?;
+            playback.play()?;
+            playback.set_muted(params.muted)?;
+            playback.set_volume(params.saved_volume)?;
+            return Err(e);
+        }
+        playback.play()?;
+        playback.set_muted(params.muted)?;
+        playback.set_volume(params.saved_volume)?;
+    }
+
+    *state.ffmpeg_recording.lock() = Some(session);
+    Ok(())
+}
+
+fn recording_stop_worker(state: &AppState) {
+    let result = stop_recording_if_active(state, None, true);
+    let mut rec = state.recording.lock();
+    rec.stopping = false;
+    if let Err(e) = result {
+        tracing::error!("recording stop failed: {e}");
+        state.playback_state.lock().error = Some(e.to_string());
+    }
 }
 
 pub fn get_recording_status(state: &AppState) -> RecordingStatus {
     let rec = state.recording.lock();
+    let ps = state.playback_state.lock();
     RecordingStatus {
         active: rec.active,
+        starting: rec.starting,
+        stopping: rec.stopping,
         path: rec.path.as_ref().map(|p| p.to_string_lossy().into_owned()),
-        available: recording::recording_available()
-            && state.playback.lock().supports_recording(),
+        available: recording::recording_available() && ps.playing && !ps.preview_mode,
     }
 }
 
-pub fn toggle_recording(state: &AppState) -> Result<RecordingStatus, AppError> {
+pub(crate) fn toggle_recording(state: &AppState) -> Result<ToggleRecordingOutcome, AppError> {
     if !recording::recording_available() {
         return Err(AppError::Other(
-            "Recording is only available in the Windows desktop app.".into(),
+            "Recording requires ffmpeg on Windows. Install ffmpeg and add it to PATH, or place ffmpeg.exe next to the app.".into(),
         ));
     }
 
@@ -381,9 +508,24 @@ pub fn toggle_recording(state: &AppState) -> Result<RecordingStatus, AppError> {
         ));
     }
 
+    {
+        let rec = state.recording.lock();
+        if rec.starting || rec.stopping {
+            return Ok(ToggleRecordingOutcome {
+                status: get_recording_status(state),
+                start: None,
+                spawn_stop: false,
+            });
+        }
+    }
+
     if state.recording.lock().active {
-        stop_recording_if_active(state)?;
-        return Ok(get_recording_status(state));
+        state.recording.lock().stopping = true;
+        return Ok(ToggleRecordingOutcome {
+            status: get_recording_status(state),
+            start: None,
+            spawn_stop: true,
+        });
     }
 
     let channel_id = state
@@ -403,6 +545,12 @@ pub fn toggle_recording(state: &AppState) -> Result<RecordingStatus, AppError> {
         .get_channel(&channel_id)?
         .ok_or_else(|| AppError::Other(format!("channel not found: {channel_id}")))?;
 
+    if !recording::recording_supported_url(&channel.stream_url) {
+        return Err(AppError::Other(
+            "Recording is only supported for direct MPEG-TS streams, not HLS (.m3u8).".into(),
+        ));
+    }
+
     let programme_title = recording::programme_title_for_channel(state, &channel_id);
     let dir = recording::recordings_dir()?;
     let filename = recording::build_recording_filename(
@@ -410,16 +558,58 @@ pub fn toggle_recording(state: &AppState) -> Result<RecordingStatus, AppError> {
         programme_title.as_deref(),
     );
     let path = recording::unique_recording_path(&dir, &filename);
-    let path_str = path.to_string_lossy().into_owned();
+    let stream_url = channel.stream_url.clone();
+    let saved_volume = state.playback_state.lock().volume;
+    let muted = state.playback_state.lock().muted;
+    let udp_port = pick_udp_port()?;
+    let playback_url = udp_playback_url(udp_port);
 
-    state.playback.lock().start_recording(&path_str)?;
+    {
+        let mut rec = state.recording.lock();
+        rec.starting = true;
+        rec.path = Some(path.clone());
+        rec.source_url = Some(stream_url.clone());
+    }
 
-    let mut rec = state.recording.lock();
-    rec.active = true;
-    rec.path = Some(path);
+    Ok(ToggleRecordingOutcome {
+        status: get_recording_status(state),
+        start: Some(RecordingStartParams {
+            stream_url,
+            path,
+            playback_url,
+            udp_port,
+            saved_volume,
+            muted,
+        }),
+        spawn_stop: false,
+    })
+}
 
-    tracing::info!("recording started: {}", path_str);
-    Ok(get_recording_status(state))
+pub(crate) fn execute_recording_followup(
+    app: &AppHandle,
+    outcome: ToggleRecordingOutcome,
+) -> Result<RecordingStatus, AppError> {
+    if outcome.spawn_stop {
+        let app = app.clone();
+        std::thread::Builder::new()
+            .name("recording-stop".into())
+            .spawn(move || {
+                let state = app.state::<AppState>();
+                recording_stop_worker(state.inner());
+            })
+            .map_err(|e| AppError::Other(format!("recording stop thread: {e}")))?;
+    }
+    if let Some(params) = outcome.start {
+        let app = app.clone();
+        std::thread::Builder::new()
+            .name("recording-start".into())
+            .spawn(move || {
+                let state = app.state::<AppState>();
+                recording_start_worker(state.inner(), params);
+            })
+            .map_err(|e| AppError::Other(format!("recording start thread: {e}")))?;
+    }
+    Ok(outcome.status)
 }
 
 fn play_channel_internal(
@@ -455,7 +645,7 @@ fn play_channel_internal(
             )
         };
         if was_main {
-            stop_recording_if_active(state)?;
+            stop_recording_if_active(state, Some(playback.as_mut()), false)?;
             playback.stop()?;
             playback.clear_pip_geometry().ok();
         } else if !preview {
@@ -503,7 +693,7 @@ fn play_channel_internal(
 }
 
 pub fn stop_playback(window: &tauri::WebviewWindow, state: &AppState) -> Result<(), AppError> {
-    stop_recording_if_active(state)?;
+    stop_recording_if_active(state, None, false)?;
     state.playback.lock().stop()?;
     disable_player_surface(window)?;
     let mut ps = state.playback_state.lock();

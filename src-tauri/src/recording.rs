@@ -5,6 +5,10 @@ use chrono::Local;
 use crate::error::AppError;
 use crate::state::AppState;
 
+pub mod ffmpeg;
+
+pub use ffmpeg::{ffmpeg_available, pick_udp_port, udp_playback_url, FfmpegRecording};
+
 /// User-visible folder: `%USERPROFILE%\\Videos\\Black Magic IPTV\\Recordings`
 pub fn recordings_dir() -> Result<PathBuf, AppError> {
     let base = dirs::video_dir().ok_or_else(|| {
@@ -70,5 +74,23 @@ pub fn programme_title_for_channel(state: &AppState, channel_id: &str) -> Option
 }
 
 pub fn recording_available() -> bool {
-    cfg!(all(target_os = "windows", feature = "playback-mpv"))
+    cfg!(all(target_os = "windows", feature = "playback-mpv")) && ffmpeg_available()
+}
+
+pub fn recording_supported_url(url: &str) -> bool {
+    let lower = url.to_ascii_lowercase();
+    !(lower.contains(".m3u8") || lower.contains("m3u8?") || lower.contains("type=m3u8"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rejects_hls_urls() {
+        assert!(!recording_supported_url(
+            "http://example.com/live/playlist.m3u8"
+        ));
+        assert!(recording_supported_url("http://example.com/live/channel.ts"));
+    }
 }

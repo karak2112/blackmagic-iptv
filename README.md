@@ -41,6 +41,7 @@ Also: Node.js 20+, Rust stable ([rustup](https://rustup.rs/)).
 |---------------|--------------|
 | `npm run tauri dev` | Linux dev build; **stub** playback (UI, playlists, EPG — no video) |
 | `npm run fetch-mpv` | Downloads the **Windows** `libmpv-2.dll` into `third_party/mpv/win/` for Windows builds/installers — **not used** by the Linux dev binary |
+| `npm run fetch-ffmpeg` | Downloads **Windows** `ffmpeg.exe` into `third_party/ffmpeg/win/` for stream recording in Windows builds |
 | `cargo test -p iptv-core` | Parser/tests without Tauri or GTK |
 
 **Video while staying in WSL:** install the Linux mpv library and rebuild with mpv enabled:
@@ -59,8 +60,9 @@ npm run tauri dev -- --features playback-mpv
 - [WebView2](https://developer.microsoft.com/en-us/microsoft-edge/webview2/) (usually preinstalled on Windows 11)
 - Visual Studio 2022 with C++ build tools
 - **libmpv** for video playback — run `npm run fetch-mpv` from PowerShell or WSL, then `npm run tauri dev` / `npm run tauri build`
+- **ffmpeg** for stream recording — run `npm run fetch-ffmpeg` before building the Windows app
 
-Without libmpv on Windows, channels load but video stays blank (stub engine).
+Without libmpv on Windows, channels load but video stays blank (stub engine). Without ffmpeg, the REC button stays hidden.
 
 ### Fetch libmpv automatically (recommended)
 
@@ -75,6 +77,15 @@ This downloads `libmpv-2.dll` and generates `mpv.lib` (MSVC import library) into
 See [third_party/NOTICES.md](third_party/NOTICES.md) for GPL licensing notes when distributing installers.
 
 If you fetched from WSL (DLL only) and the Windows link step fails with `cannot open input file 'mpv.lib'`, run `npm run generate-mpv-lib` from **Windows PowerShell** in the repo, or re-run `npm run fetch-mpv` on Windows.
+
+### Fetch ffmpeg for recording (Windows)
+
+```bash
+npm run fetch-ffmpeg
+```
+
+This downloads `ffmpeg.exe` into `third_party/ffmpeg/win/`. The Windows installer bundles it
+next to the executable. See [third_party/ffmpeg/README.md](third_party/ffmpeg/README.md).
 
 ### Linux / WSL system libraries
 

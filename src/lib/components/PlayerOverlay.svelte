@@ -28,6 +28,7 @@
     onChannelDelta: (delta: number) => void;
     recordAvailable?: boolean;
     recording?: boolean;
+    recordingBusy?: boolean;
     onToggleRecord?: () => void;
   }
 
@@ -55,6 +56,7 @@
     onChannelDelta,
     recordAvailable = false,
     recording = false,
+    recordingBusy = false,
     onToggleRecord,
   }: Props = $props();
 
@@ -229,11 +231,12 @@
               <button
                 class="record-btn"
                 class:active={recording}
+                disabled={recordingBusy}
                 onclick={onToggleRecord}
                 aria-label={recording ? "Stop recording" : "Start recording"}
                 aria-pressed={recording}
               >
-                {recording ? "⏹ REC" : "⏺ REC"}
+                {recordingBusy ? "… REC" : recording ? "⏹ REC" : "⏺ REC"}
               </button>
             {/if}
           </div>

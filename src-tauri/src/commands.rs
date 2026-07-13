@@ -1,5 +1,5 @@
 use iptv_core::{ChannelListPage, EpgSummary, GroupInfo, NowNext, PlaybackState, PlaylistSummary, Source};
-use tauri::{Manager, State, WebviewWindow};
+use tauri::{AppHandle, Manager, State, WebviewWindow};
 
 use crate::services;
 use crate::state::AppState;
@@ -226,8 +226,12 @@ pub fn get_recording_status(state: State<'_, AppState>) -> iptv_core::RecordingS
 }
 
 #[tauri::command]
-pub fn toggle_recording(state: State<'_, AppState>) -> Result<iptv_core::RecordingStatus, crate::error::AppError> {
-    services::toggle_recording(&state)
+pub fn toggle_recording(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<iptv_core::RecordingStatus, crate::error::AppError> {
+    let outcome = services::toggle_recording(&state)?;
+    services::execute_recording_followup(&app, outcome)
 }
 
 #[tauri::command]

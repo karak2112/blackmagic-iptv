@@ -62,6 +62,8 @@ pub struct StreamStats {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RecordingStatus {
     pub active: bool,
+    pub starting: bool,
+    pub stopping: bool,
     pub path: Option<String>,
     pub available: bool,
 }
@@ -70,6 +72,8 @@ impl Default for RecordingStatus {
     fn default() -> Self {
         Self {
             active: false,
+            starting: false,
+            stopping: false,
             path: None,
             available: false,
         }

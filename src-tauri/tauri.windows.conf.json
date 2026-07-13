@@ -5,7 +5,8 @@
   },
   "bundle": {
     "resources": {
-      "../third_party/mpv/win/libmpv-2.dll": "libmpv-2.dll"
+      "../third_party/mpv/win/libmpv-2.dll": "libmpv-2.dll",
+      "../third_party/ffmpeg/win/ffmpeg.exe": "ffmpeg.exe"
     }
   }
 }

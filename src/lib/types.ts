@@ -57,6 +57,8 @@ export interface EpgSummary {
 
 export interface RecordingStatus {
   active: boolean;
+  starting: boolean;
+  stopping: boolean;
   path: string | null;
   available: boolean;
 }

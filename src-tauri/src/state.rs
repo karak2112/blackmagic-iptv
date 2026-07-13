@@ -6,6 +6,7 @@ use parking_lot::Mutex;
 use crate::db::Database;
 use crate::fetch::HttpFetcher;
 use crate::playback::engine::PlaybackEngine;
+use crate::recording::FfmpegRecording;
 use tauri::AppHandle;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -21,7 +22,10 @@ pub struct PreviewBounds {
 #[derive(Debug, Clone, Default)]
 pub struct RecordingState {
     pub active: bool,
+    pub starting: bool,
+    pub stopping: bool,
     pub path: Option<std::path::PathBuf>,
+    pub source_url: Option<String>,
 }
 
 pub struct AppState {
@@ -31,6 +35,7 @@ pub struct AppState {
     pub playback_state: Mutex<PlaybackState>,
     pub preview_bounds: Mutex<Option<PreviewBounds>>,
     pub recording: Mutex<RecordingState>,
+    pub ffmpeg_recording: Mutex<Option<FfmpegRecording>>,
 }
 
 impl AppState {
@@ -43,6 +48,7 @@ impl AppState {
             playback_state: Mutex::new(PlaybackState::default()),
             preview_bounds: Mutex::new(None),
             recording: Mutex::new(RecordingState::default()),
+            ffmpeg_recording: Mutex::new(None),
         })
     }
 }
