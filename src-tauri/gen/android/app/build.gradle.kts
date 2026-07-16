@@ -1,5 +1,15 @@
 import java.util.Properties
 
+fun loadKeyValueFile(path: java.io.File): Map<String, String> =
+    path.readLines()
+        .map { it.trim() }
+        .filter { it.isNotEmpty() && !it.startsWith("#") }
+        .mapNotNull { line ->
+            val idx = line.indexOf('=')
+            if (idx < 1) null else line.substring(0, idx).trim() to line.substring(idx + 1).trim()
+        }
+        .toMap()
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -13,16 +23,31 @@ val tauriProperties = Properties().apply {
     }
 }
 
+val appVersionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+val apkBaseName = "blackmagic-iptv-$appVersionName"
+
 android {
     compileSdk = 36
     namespace = "com.blackmagicsoftware.iptv"
     defaultConfig {
-        manifestPlaceholders["usesCleartextTraffic"] = "false"
+        manifestPlaceholders["usesCleartextTraffic"] = "true"
         applicationId = "com.blackmagicsoftware.iptv"
         minSdk = 24
         targetSdk = 36
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
-        versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+        versionName = appVersionName
+    }
+    signingConfigs {
+        create("release") {
+            val keystorePropertiesFile = rootProject.file("keystore.properties")
+            if (keystorePropertiesFile.exists()) {
+                val keystoreProperties = loadKeyValueFile(keystorePropertiesFile)
+                keyAlias = keystoreProperties.getValue("keyAlias")
+                keyPassword = keystoreProperties.getValue("password")
+                storeFile = file(keystoreProperties.getValue("storeFile"))
+                storePassword = keystoreProperties.getValue("password")
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -37,6 +62,9 @@ android {
             }
         }
         getByName("release") {
+            if (rootProject.file("keystore.properties").exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }
@@ -50,6 +78,36 @@ android {
     }
     buildFeatures {
         buildConfig = true
+    }
+}
+
+afterEvaluate {
+    tasks.matching {
+        it.name.startsWith("assemble") &&
+            !it.name.contains("AndroidTest") &&
+            !it.name.contains("UnitTest")
+    }.configureEach {
+        doLast {
+            val apkRoot = layout.buildDirectory.dir("outputs/apk").get().asFile
+            if (!apkRoot.exists()) return@doLast
+
+            apkRoot.walkTopDown()
+                .filter { it.isFile && it.extension == "apk" }
+                .forEach { apk ->
+                    val buildType = apk.parentFile.name
+                    val abiCandidate = apk.parentFile.parentFile?.name
+                    val abiPart = when {
+                        abiCandidate == null || abiCandidate == "apk" -> "universal"
+                        abiCandidate == "release" || abiCandidate == "debug" -> "universal"
+                        else -> abiCandidate
+                    }
+                    val newName = "$apkBaseName-$abiPart-$buildType.apk"
+                    val dest = File(apk.parentFile, newName)
+                    if (apk.name != newName) {
+                        apk.renameTo(dest)
+                    }
+                }
+        }
     }
 }
 

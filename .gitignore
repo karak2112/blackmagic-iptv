@@ -26,3 +26,6 @@ src-tauri/gen/android/.gradle/
 src-tauri/gen/android/local.properties
 src-tauri/gen/android/**/build/
 src-tauri/gen/android/.idea/
+
+#signing stuff
+src-tauri/gen/android/keystore.properties.example

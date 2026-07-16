@@ -227,7 +227,8 @@ Enable USB debugging for a physical device, or start an Android emulator from An
 npm run tauri:android:build
 ```
 
-Outputs land under `src-tauri/gen/android/app/build/outputs/` (APK and AAB are produced automatically — no `bundle.targets` entry needed).
+Outputs land under `src-tauri/gen/android/app/build/outputs/`. Signed release APKs are named
+`blackmagic-iptv-{version}-universal-release.apk` (see `app/build.gradle.kts`).
 
 ### Android vs Windows differences (v0.1.x)
 
