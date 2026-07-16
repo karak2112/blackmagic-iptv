@@ -36,6 +36,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run fetch-mpv
+      - run: npm run fetch-ffmpeg
       - run: npm run tauri build
         env:
           CI: true
